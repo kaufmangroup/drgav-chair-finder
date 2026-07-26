@@ -173,7 +173,7 @@ body {
 }
 
 .chair-draw {
-  width: 96px;
+  width: 110px;
   height: auto;
 }
 
@@ -184,15 +184,17 @@ body {
 .chair-draw .cd-part {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: draw-chair 2.6s cubic-bezier(.65,0,.35,1) infinite;
+  animation: draw-chair 2.8s cubic-bezier(.65,0,.35,1) infinite;
 }
 
 .chair-draw .cd-1 { animation-delay: 0s; }
-.chair-draw .cd-2 { animation-delay: 0.12s; }
-.chair-draw .cd-3 { animation-delay: 0.22s; }
+.chair-draw .cd-2 { animation-delay: 0.14s; }
+.chair-draw .cd-3 { animation-delay: 0.24s; }
 .chair-draw .cd-4 { animation-delay: 0.34s; }
-.chair-draw .cd-5 { animation-delay: 0.44s; }
+.chair-draw .cd-5 { animation-delay: 0.46s; }
 .chair-draw .cd-6 { animation-delay: 0.56s; }
+.chair-draw .cd-7 { animation-delay: 0.64s; }
+.chair-draw .cd-8 { animation-delay: 0.76s; }
 
 @keyframes draw-chair {
   0% { stroke-dashoffset: 1; }
