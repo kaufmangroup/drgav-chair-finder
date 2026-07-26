@@ -261,6 +261,7 @@ body {
   left: 0;
   right: 0;
   height: 32vh;
+  overflow: hidden;
   pointer-events: none;
   z-index: 1;
 }
@@ -273,9 +274,31 @@ body {
   bottom: -9vh;
 }
 
+/* Each ring is a 0-size anchor point; its rotation animates as a whole, so
+   every chair inside keeps its fixed angle/radius relative to the others —
+   a rigid carousel, not independently drifting chairs. */
+.decor-ring {
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  animation-name: decor-spin;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes decor-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .decor-chair {
   position: absolute;
-  width: 100px;
+  left: 0;
+  top: 0;
+  width: 92px;
+  margin-left: -46px;
+  margin-top: -46px;
 }
 
 .decor-chair img {

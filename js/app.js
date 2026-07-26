@@ -49,31 +49,51 @@ async function initLogo() {
   });
 }
 
-// Decorative chairs scattered along the top/bottom edges of the welcome
-// screen, tilted at random angles and bleeding off-screen — purely visual,
-// picked from whichever chairs happen to load first.
-function populateWelcomeDecor(sourceChairs) {
-  const top = document.getElementById('decorTop');
-  const bottom = document.getElementById('decorBottom');
-  if (!top || !bottom) return;
+// Decorative chairs orbiting the top/bottom edges of the welcome screen —
+// two concentric rings per edge (inner + outer), each a rigid rotating
+// carousel (all its chairs keep the same relative spacing), with the outer
+// ring spinning faster than the inner one. The band containers clip
+// overflow, so the full 360° rotation underneath never actually shows a
+// chair drifting into the text in the middle — only the arc that pokes
+// into each band's window is ever visible.
+const DECOR_RINGS = [
+  { name: 'inner', radiusVh: 15, count: 4, duration: 50 },
+  { name: 'outer', radiusVh: 27, count: 5, duration: 22 },
+];
 
-  const picks = sourceChairs.slice(0, 12);
-  picks.forEach((chair, i) => {
-    const container = i < 6 ? top : bottom;
-    const indexInRow = i % 6;
-    const el = document.createElement('div');
-    el.className = 'decor-chair';
-    const leftPct = 4 + indexInRow * 16 + (Math.sin(i * 13.7) * 4);
-    const topPct = i < 6 ? 15 + Math.sin(i * 7.3) * 20 : 25 + Math.sin(i * 5.1) * 20;
-    const rotateDeg = Math.sin(i * 9.1) * 22;
-    el.style.left = leftPct + '%';
-    el.style.top = topPct + '%';
-    el.style.transform = `rotate(${rotateDeg}deg)`;
-    const img = document.createElement('img');
-    img.src = imageCache[chair.id] || chair.image;
-    img.alt = '';
-    el.appendChild(img);
-    container.appendChild(el);
+function populateWelcomeDecor(sourceChairs) {
+  const bands = [
+    { container: document.getElementById('decorTop'), anchorTop: '100%' },
+    { container: document.getElementById('decorBottom'), anchorTop: '0%' },
+  ];
+  if (!bands[0].container || !bands[1].container) return;
+
+  let chairIndex = 0;
+  bands.forEach(({ container, anchorTop }) => {
+    DECOR_RINGS.forEach((ring) => {
+      const ringEl = document.createElement('div');
+      ringEl.className = `decor-ring decor-ring-${ring.name}`;
+      ringEl.style.top = anchorTop;
+      ringEl.style.animationDuration = ring.duration + 's';
+
+      for (let i = 0; i < ring.count; i++) {
+        const chair = sourceChairs[chairIndex % sourceChairs.length];
+        chairIndex++;
+        const angle = (360 / ring.count) * i;
+        const tilt = Math.sin(chairIndex * 12.9) * 14;
+
+        const el = document.createElement('div');
+        el.className = 'decor-chair';
+        el.style.transform = `rotate(${angle}deg) translate(0, -${ring.radiusVh}vh) rotate(${-angle + tilt}deg)`;
+
+        const img = document.createElement('img');
+        img.src = imageCache[chair.id] || chair.image;
+        img.alt = '';
+        el.appendChild(img);
+        ringEl.appendChild(el);
+      }
+      container.appendChild(ringEl);
+    });
   });
 }
 
