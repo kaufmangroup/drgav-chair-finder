@@ -1,0 +1,144 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+  background: #f1f1f1;
+  color: #1c1c1e;
+  overflow: hidden;
+}
+
+.brand {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+}
+
+.brand img {
+  display: block;
+  height: 44px;
+  width: auto;
+}
+
+.stage {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+.chair-item {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  transition: width 0.6s cubic-bezier(.4,0,.2,1), left 0.6s cubic-bezier(.4,0,.2,1), top 0.6s cubic-bezier(.4,0,.2,1);
+  cursor: pointer;
+}
+
+.chair-item img {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+
+.control-card {
+  position: fixed;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 12px 34px rgba(0,0,0,0.14);
+  padding: 18px 26px 16px;
+  width: min(360px, 90vw);
+  text-align: center;
+  z-index: 20;
+}
+
+.control-title {
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.info-dot {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #bbb;
+  font-size: 10px;
+  line-height: 14px;
+  color: #9a9a9e;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.info-tooltip {
+  position: absolute;
+  bottom: 135%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #222;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 400;
+  width: 200px;
+  line-height: 1.5;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.info-dot:hover .info-tooltip,
+.info-dot:focus .info-tooltip {
+  opacity: 1;
+}
+
+#sittingSlider {
+  width: 100%;
+  accent-color: #d21f3c;
+  cursor: pointer;
+}
+
+.control-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #9a9a9e;
+  margin-top: 4px;
+}
+
+.control-value {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #d21f3c;
+}
+
+.chair-tooltip {
+  position: fixed;
+  background: #fff;
+  padding: 6px 12px;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.16);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 30;
+  transform: translate(-50%, -120%);
+}
