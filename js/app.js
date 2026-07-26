@@ -188,50 +188,61 @@ function computeExclusionZones() {
   return zones;
 }
 
-function keepOutsideZones(x, y, zones) {
-  // Several passes: pushing out of one zone can land inside a neighboring
-  // one when zones are packed close together (e.g. the medium-tier column).
-  for (let pass = 0; pass < 4; pass++) {
+// A fixed grid breaks down once exclusion zones eat entire columns near the
+// edges (common on narrow phones): every chair that would've landed there
+// gets pushed toward whatever open pocket remains, piling on top of each
+// other. Instead, place chairs one at a time with rejection sampling: try
+// random spots, keep the first one that both avoids every exclusion zone
+// AND keeps a real pixel-distance gap from every chair already placed.
+// Falls back to the least-bad candidate rather than looping forever, so
+// every chair always ends up somewhere.
+function placeWithSpacing(rand, size, zones, placed) {
+  let best = null, bestPenalty = Infinity;
+  for (let attempt = 0; attempt < 300; attempt++) {
+    const x = HOME_X_MIN + rand() * (HOME_X_MAX - HOME_X_MIN);
+    const y = HOME_Y_MIN + rand() * (HOME_Y_MAX - HOME_Y_MIN);
+    const xPx = (x / 100) * window.innerWidth;
+    const yPx = (y / 100) * window.innerHeight;
+
+    let zonePenalty = 0;
     for (const z of zones) {
-      const dx = x - z.cx, dy = y - z.cy;
-      const nx = dx / z.rx, ny = dy / z.ry;
-      const dist = Math.sqrt(nx * nx + ny * ny);
-      if (dist < 1) {
-        const angle = Math.atan2(dy || (Math.random() - 0.5), dx || (Math.random() - 0.5));
-        x = z.cx + Math.cos(angle) * z.rx * 1.15;
-        y = z.cy + Math.sin(angle) * z.ry * 1.15;
-      }
+      const nx = (x - z.cx) / z.rx, ny = (y - z.cy) / z.ry;
+      const d = Math.sqrt(nx * nx + ny * ny);
+      if (d < 1) zonePenalty += (1 - d) * 40; // heavily discouraged, not forbidden
+    }
+
+    let spacingPenalty = 0;
+    for (const p of placed) {
+      const required = (size + p.size) / 2 * 1.2;
+      const distPx = Math.hypot(xPx - p.xPx, yPx - p.yPx);
+      if (distPx < required) spacingPenalty += required - distPx;
+    }
+
+    const penalty = zonePenalty * 1000 + spacingPenalty;
+    if (penalty < bestPenalty) {
+      best = { x, y, xPx, yPx };
+      bestPenalty = penalty;
+      if (penalty === 0) break;
     }
   }
-  // A generous, mostly-cosmetic bound only — NOT the tight home-slot canvas
-  // bounds, since re-clamping to those would undo an escape push that
-  // legitimately needs to land near/past the visible edge.
-  return { x: clamp(x, -8, 108), y: clamp(y, -8, 108) };
+  return best;
 }
 
 function layoutStage() {
   stage.innerHTML = '';
 
-  // Narrower/taller screens (phones) get fewer columns and more rows so
-  // chairs keep sensible spacing instead of cramming sideways.
-  const aspect = window.innerWidth / window.innerHeight;
-  const cols = Math.round(clamp(Math.sqrt(chairs.length * aspect), 3, 7));
-  const rows = Math.ceil(chairs.length / cols);
-  const colW = (HOME_X_MAX - HOME_X_MIN) / cols;
-  const rowH = (HOME_Y_MAX - HOME_Y_MIN) / rows;
   const order = seededShuffle(chairs.map((c, i) => i), mulberry32(42));
   const zones = computeExclusionZones();
   const [homeMinSize, homeMaxSize] = homeSizeRange();
+  const placed = [];
 
-  items = chairs.map((chair, idx) => {
+  items = order.map((idx) => {
+    const chair = chairs[idx];
     const rand = mulberry32(seedFromString(chair.id));
-    const slot = order.indexOf(idx);
-    const col = slot % cols;
-    const row = Math.floor(slot / cols);
-    const rawX = clamp(HOME_X_MIN + colW * (col + 0.5) + (rand() - 0.5) * colW * 0.8, HOME_X_MIN, HOME_X_MAX);
-    const rawY = clamp(HOME_Y_MIN + rowH * (row + 0.5) + (rand() - 0.5) * rowH * 0.8, HOME_Y_MIN, HOME_Y_MAX);
-    const { x: homeX, y: homeY } = keepOutsideZones(rawX, rawY, zones);
     const homeSize = homeMinSize + rand() * (homeMaxSize - homeMinSize);
+    const spot = placeWithSpacing(rand, homeSize, zones, placed);
+    const homeX = spot.x, homeY = spot.y;
+    placed.push({ xPx: spot.xPx, yPx: spot.yPx, size: homeSize });
 
     const el = document.createElement('div');
     el.className = 'chair-item';
