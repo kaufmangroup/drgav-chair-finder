@@ -7,30 +7,6 @@ let chairs = [];
 let items = [];
 let imageCache = {}; // chair.id -> cutout data URL, loaded once regardless of layout/resize
 
-function mulberry32(seed) {
-  return function () {
-    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function seedFromString(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (Math.imul(h, 31) + str.charCodeAt(i)) | 0;
-  return h;
-}
-
-function seededShuffle(arr, rand) {
-  const out = arr.slice();
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
-
 function clamp(v, min, max) {
   return Math.min(max, Math.max(min, v));
 }
@@ -42,7 +18,7 @@ async function init() {
     const data = await res.json();
     chairs = data.chairs || [];
     await loadAllImages();
-    layoutStage();
+    buildStage();
     applyFilter();
   } catch (err) {
     stage.innerHTML = '<p style="text-align:center;padding-top:40vh;color:#999">לא הצלחנו לטעון את קטלוג הכיסאות. נסו לרענן את הדף.</p>';
@@ -101,10 +77,12 @@ function cutoutWhiteBackground(url) {
   });
 }
 
-// Sizes are defined as a fraction of the smaller viewport dimension (not a
-// fixed px value) so the podium/medium/home tiers scale sensibly whether
-// the screen is a wide desktop or a narrow tall phone, then clamped so they
-// never get absurdly tiny or huge.
+// Only a curated shortlist is ever visible at once — everything past that
+// is simply hidden, not shrunk into background clutter. Sizes are a
+// fraction of the smaller viewport dimension so the layout scales sensibly
+// on any screen, then clamped so nothing gets absurdly tiny or huge.
+const VISIBLE_COUNT = 15; // 3 podium + 12 ring
+
 function vmin() {
   return Math.min(window.innerWidth, window.innerHeight);
 }
@@ -113,203 +91,47 @@ function sizeFromFraction(fraction, min, max) {
   return clamp(vmin() * fraction, min, max);
 }
 
-// Every chair has a fixed "home" slot: a small, scattered, never-moving
-// position/size. Only the current top matches ever leave their home and
-// travel to a shared podium/medium slot — everyone else just sits small.
-const HOME_X_MIN = 3, HOME_X_MAX = 97, HOME_Y_MIN = 3, HOME_Y_MAX = 92;
-
+// The 3 selected chairs: one dominant, centered chair with two slightly
+// smaller ones flanking it just above — kept near the true center of the
+// screen (between the logo and the control card), not pushed to one side.
 function podiumSlots() {
   return [
-    { x: 50, y: 63, size: sizeFromFraction(0.34, 130, 260) }, // biggest, above the control card
-    { x: 36, y: 24, size: sizeFromFraction(0.25, 100, 200) }, // upper left
-    { x: 64, y: 24, size: sizeFromFraction(0.25, 100, 200) }, // upper right
+    { x: 50, y: 56, size: sizeFromFraction(0.42, 170, 300) },
+    { x: 31, y: 39, size: sizeFromFraction(0.30, 120, 220) },
+    { x: 69, y: 39, size: sizeFromFraction(0.30, 120, 220) },
   ];
 }
 
-// Ranks 4–11 (the next 8 best matches) form a literal ring around the
-// podium cluster — not two side columns — noticeably bigger than the outer
-// scatter but well below podium size. The ring skips a wedge at the bottom
-// (where the control card and the podium's own lower chair already sit),
-// sweeping the remaining ~260° instead. Positions are computed from a
-// pixel radius (not a percentage one) so the ring reads as an actual circle
-// on screen regardless of viewport aspect ratio.
-function mediumSlots() {
-  const size = sizeFromFraction(0.16, 70, 140);
-  const cx = 50, cy = 42; // matches the podium cluster's center
-  const radiusPx = sizeFromFraction(0.40, 150, 260);
-  const startDeg = 140, endDeg = 400, count = 8;
-  const slots = [];
-  for (let i = 0; i < count; i++) {
-    const deg = startDeg + ((endDeg - startDeg) * i) / (count - 1);
+// The next 12 best matches sit on a real ring around the podium. The ring
+// has two gaps — a wide one at the bottom (control card) and a narrower one
+// at the top (logo) — so chairs never fight either for space. Positions
+// come from a pixel radius (not a percentage one) so the ring reads as an
+// actual circle on screen regardless of viewport aspect ratio.
+const RING_ANGLES_DEG = [155, 173, 191, 209, 227, 245, 295, 313, 331, 349, 7, 25];
+
+function ringSlots() {
+  const size = sizeFromFraction(0.20, 95, 175);
+  const cx = 50, cy = 48; // matches the podium cluster's center
+  // Independent x/y radii (each a fraction of ITS OWN viewport dimension,
+  // not of vmin) so a tall narrow phone gets a taller ellipse that actually
+  // uses the extra vertical room, instead of being capped by the narrow
+  // width in both directions.
+  const radiusXPx = clamp(window.innerWidth * 0.36, 150, 300);
+  const radiusYPx = clamp(window.innerHeight * 0.30, 150, 320);
+  return RING_ANGLES_DEG.map((deg) => {
     const rad = (deg * Math.PI) / 180;
-    const x = cx + ((Math.cos(rad) * radiusPx) / window.innerWidth) * 100;
-    const y = cy + ((Math.sin(rad) * radiusPx) / window.innerHeight) * 100;
-    slots.push({ x, y, size });
-  }
-  return slots;
-}
-
-function homeSizeRange() {
-  return [sizeFromFraction(0.05, 28, 60), sizeFromFraction(0.11, 55, 110)];
-}
-
-// Converts an element's actual rendered footprint (from getBoundingClientRect)
-// into an exclusion ellipse in stage-percentage space, with padding. This is
-// what makes the "keep away from the control card" rule work correctly no
-// matter the viewport size — the card is capped at 90vw, so its real width
-// relative to the screen is very different on a phone vs. a desktop, and a
-// hardcoded percentage guess can't track that.
-function footprintZoneFromRect(rect, paddingFactor) {
-  const cx = ((rect.left + rect.right) / 2 / window.innerWidth) * 100;
-  const cy = ((rect.top + rect.bottom) / 2 / window.innerHeight) * 100;
-  const rx = (rect.width / 2 / window.innerWidth) * 100 * paddingFactor;
-  const ry = (rect.height / 2 / window.innerHeight) * 100 * paddingFactor;
-  return { cx, cy, rx, ry };
-}
-
-function footprintZoneFromSlot(slot, paddingFactor) {
-  const rx = (slot.size / 2 / window.innerWidth) * 100 * paddingFactor;
-  const ry = (slot.size / 2 / window.innerHeight) * 100 * paddingFactor;
-  return { cx: slot.x, cy: slot.y, rx, ry };
-}
-
-function computeExclusionZones() {
-  const zones = [];
-
-  const cardRect = document.querySelector('.control-card').getBoundingClientRect();
-  zones.push(footprintZoneFromRect(cardRect, 1.15));
-
-  const logoRect = document.querySelector('.brand').getBoundingClientRect();
-  zones.push(footprintZoneFromRect(logoRect, 1.4));
-
-  const podium = podiumSlots();
-  // One zone covering the whole triangular area the 3 podium slots span
-  // together (not 3 separate small zones) — otherwise chairs land in the
-  // gaps between the slots and still visually read as "inside the cluster".
-  const podiumXs = podium.map((s) => s.x), podiumYs = podium.map((s) => s.y);
-  const maxPodiumSize = Math.max(...podium.map((s) => s.size));
-  zones.push({
-    cx: (Math.min(...podiumXs) + Math.max(...podiumXs)) / 2,
-    cy: (Math.min(...podiumYs) + Math.max(...podiumYs)) / 2 + 8,
-    rx: (Math.max(...podiumXs) - Math.min(...podiumXs)) / 2 + (maxPodiumSize / 2 / window.innerWidth) * 100 * 1.15,
-    ry: (Math.max(...podiumYs) - Math.min(...podiumYs)) / 2 + (maxPodiumSize / 2 / window.innerHeight) * 100 * 1.3,
+    const x = cx + ((Math.cos(rad) * radiusXPx) / window.innerWidth) * 100;
+    const y = cy + ((Math.sin(rad) * radiusYPx) / window.innerHeight) * 100;
+    return { x, y, size };
   });
-
-  mediumSlots().forEach((slot) => zones.push(footprintZoneFromSlot(slot, 1.3)));
-
-  return zones;
 }
 
-// A fixed grid breaks down once exclusion zones eat entire columns near the
-// edges (common on narrow phones): every chair that would've landed there
-// gets pushed toward whatever open pocket remains, piling on top of each
-// other. Instead, place chairs one at a time with rejection sampling: try
-// random spots, keep the first one that both avoids every exclusion zone
-// AND keeps a real pixel-distance gap from every chair already placed.
-// Falls back to the least-bad candidate rather than looping forever, so
-// every chair always ends up somewhere.
-function penaltyAt(x, y, xPx, yPx, size, zones, placed) {
-  let zonePenalty = 0;
-  for (const z of zones) {
-    const nx = (x - z.cx) / z.rx, ny = (y - z.cy) / z.ry;
-    const d = Math.sqrt(nx * nx + ny * ny);
-    if (d < 1) zonePenalty += (1 - d) * 40; // heavily discouraged, not forbidden
-  }
-  let spacingPenalty = 0, worstGap = 0, worstNeighbor = null;
-  for (const p of placed) {
-    const required = ((size + p.size) / 2) * 1.1;
-    const distPx = Math.hypot(xPx - p.xPx, yPx - p.yPx);
-    const gap = required - distPx;
-    if (gap > 0) {
-      spacingPenalty += gap;
-      if (gap > worstGap) { worstGap = gap; worstNeighbor = p; }
-    }
-  }
-  return { total: zonePenalty * 1000 + spacingPenalty, worstGap, worstNeighbor };
-}
-
-function placeWithSpacing(rand, size, zones, placed) {
-  let best = null, bestPenalty = Infinity;
-  for (let attempt = 0; attempt < 500; attempt++) {
-    const x = HOME_X_MIN + rand() * (HOME_X_MAX - HOME_X_MIN);
-    const y = HOME_Y_MIN + rand() * (HOME_Y_MAX - HOME_Y_MIN);
-    const xPx = (x / 100) * window.innerWidth;
-    const yPx = (y / 100) * window.innerHeight;
-    const { total } = penaltyAt(x, y, xPx, yPx, size, zones, placed);
-    if (total < bestPenalty) {
-      best = { x, y, xPx, yPx };
-      bestPenalty = total;
-      if (total === 0) break;
-    }
-  }
-
-  // Random sampling can still land the best candidate with a residual
-  // overlap when the free area is tight (e.g. many exclusion zones at
-  // once). Rather than accept that on bad luck, deterministically nudge
-  // away from whichever placed chair it's closest to violating, repeatedly.
-  for (let refine = 0; refine < 30 && best; refine++) {
-    const info = penaltyAt(best.x, best.y, best.xPx, best.yPx, size, zones, placed);
-    if (!info.worstNeighbor) break;
-    const p = info.worstNeighbor;
-    const dx = best.xPx - p.xPx, dy = (best.yPx - p.yPx) || (rand() - 0.5);
-    const len = Math.hypot(dx, dy) || 1;
-    const xPx = best.xPx + (dx / len) * (info.worstGap + 2);
-    const yPx = best.yPx + (dy / len) * (info.worstGap + 2);
-    const x = clamp((xPx / window.innerWidth) * 100, HOME_X_MIN, HOME_X_MAX);
-    const y = clamp((yPx / window.innerHeight) * 100, HOME_Y_MIN, HOME_Y_MAX);
-    const clampedXPx = (x / 100) * window.innerWidth, clampedYPx = (y / 100) * window.innerHeight;
-    const { total } = penaltyAt(x, y, clampedXPx, clampedYPx, size, zones, placed);
-    if (total < bestPenalty) {
-      best = { x, y, xPx: clampedXPx, yPx: clampedYPx };
-      bestPenalty = total;
-    } else {
-      break; // refinement stopped helping
-    }
-  }
-
-  // Last resort guarantee: if there's still a real (non-zone) overlap after
-  // all that, shrink this chair until it actually clears its neighbors —
-  // a slightly smaller chair reads far better than two visibly overlapping
-  // ones, and this only ever triggers in unusually cramped spots.
-  let finalSize = size;
-  for (let shrink = 0; shrink < 20 && best; shrink++) {
-    const info = penaltyAt(best.x, best.y, best.xPx, best.yPx, finalSize, zones, placed);
-    if (info.worstGap <= 0.5 || finalSize <= 20) break;
-    finalSize *= 0.9;
-  }
-
-  return { ...best, size: finalSize };
-}
-
-function layoutStage() {
+function buildStage() {
   stage.innerHTML = '';
 
-  const order = seededShuffle(chairs.map((c, i) => i), mulberry32(42));
-  const zones = computeExclusionZones();
-  const [homeMinSize, homeMaxSize] = homeSizeRange();
-  // Seed the spacing check with the podium/medium slots' real footprints
-  // too — the exclusion zones alone are a soft "keep back" hint, but this
-  // makes clearing them a hard guarantee via the same shrink-as-last-resort
-  // logic used for home chairs against each other.
-  const placed = [...podiumSlots(), ...mediumSlots()].map((slot) => ({
-    xPx: (slot.x / 100) * window.innerWidth,
-    yPx: (slot.y / 100) * window.innerHeight,
-    size: slot.size,
-  }));
-
-  items = order.map((idx) => {
-    const chair = chairs[idx];
-    const rand = mulberry32(seedFromString(chair.id));
-    const requestedSize = homeMinSize + rand() * (homeMaxSize - homeMinSize);
-    const spot = placeWithSpacing(rand, requestedSize, zones, placed);
-    const homeX = spot.x, homeY = spot.y, homeSize = spot.size;
-    placed.push({ xPx: spot.xPx, yPx: spot.yPx, size: homeSize });
-
+  items = chairs.map((chair) => {
     const el = document.createElement('div');
     el.className = 'chair-item';
-    el.style.left = homeX + '%';
-    el.style.top = homeY + '%';
-    el.style.width = homeSize + 'px';
 
     const img = document.createElement('img');
     img.src = imageCache[chair.id] || chair.image;
@@ -324,7 +146,7 @@ function layoutStage() {
 
     stage.appendChild(el);
 
-    return { chair, el, homeX, homeY, homeSize };
+    return { chair, el };
   });
 }
 
@@ -350,27 +172,26 @@ function applyFilter() {
   );
 
   const podium = podiumSlots();
-  const medium = mediumSlots();
+  const ring = ringSlots();
 
   sorted.forEach((item, rank) => {
-    const { el, homeX, homeY, homeSize } = item;
+    const { el } = item;
     if (rank < 3) {
       const slot = podium[rank];
+      el.hidden = false;
       el.style.left = slot.x + '%';
       el.style.top = slot.y + '%';
       el.style.width = slot.size + 'px';
       el.style.zIndex = String(200 - rank);
-    } else if (rank < 11) {
-      const slot = medium[rank - 3];
+    } else if (rank < VISIBLE_COUNT) {
+      const slot = ring[rank - 3];
+      el.hidden = false;
       el.style.left = slot.x + '%';
       el.style.top = slot.y + '%';
       el.style.width = slot.size + 'px';
       el.style.zIndex = String(100 - rank);
     } else {
-      el.style.left = homeX + '%';
-      el.style.top = homeY + '%';
-      el.style.width = homeSize + 'px';
-      el.style.zIndex = '1';
+      el.hidden = true;
     }
   });
 }
@@ -393,10 +214,7 @@ function hideTooltip() {
 let resizeTimer = null;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => {
-    layoutStage();
-    applyFilter();
-  }, 200);
+  resizeTimer = setTimeout(applyFilter, 200);
 });
 
 slider.addEventListener('input', applyFilter);
