@@ -21,9 +21,19 @@ async function init() {
     populateWelcomeDecor(chairs);
     buildStage();
     applyFilter();
+    revealWelcomeScreen();
   } catch (err) {
     stage.innerHTML = '<p style="text-align:center;padding-top:40vh;color:#999">לא הצלחנו לטעון את קטלוג הכיסאות. נסו לרענן את הדף.</p>';
+    revealWelcomeScreen();
   }
+}
+
+function revealWelcomeScreen() {
+  const loading = document.getElementById('loadingScreen');
+  const welcome = document.getElementById('welcomeScreen');
+  welcome.hidden = false;
+  loading.classList.add('hiding');
+  setTimeout(() => { loading.hidden = true; }, 400);
 }
 
 async function loadAllImages() {
@@ -33,7 +43,7 @@ async function loadAllImages() {
 }
 
 async function initLogo() {
-  document.querySelectorAll('.brand img, .welcome-logo').forEach(async (logoImg) => {
+  document.querySelectorAll('.brand img, .welcome-logo, .loading-logo').forEach(async (logoImg) => {
     const cutoutSrc = await cutoutWhiteBackground(logoImg.getAttribute('src'));
     if (cutoutSrc) logoImg.src = cutoutSrc;
   });
