@@ -18,6 +18,7 @@ async function init() {
     const data = await res.json();
     chairs = data.chairs || [];
     await loadAllImages();
+    populateWelcomeDecor(chairs);
     buildStage();
     applyFilter();
   } catch (err) {
@@ -32,10 +33,38 @@ async function loadAllImages() {
 }
 
 async function initLogo() {
-  const logoImg = document.querySelector('.brand img');
-  if (!logoImg) return;
-  const cutoutSrc = await cutoutWhiteBackground(logoImg.getAttribute('src'));
-  if (cutoutSrc) logoImg.src = cutoutSrc;
+  document.querySelectorAll('.brand img, .welcome-logo').forEach(async (logoImg) => {
+    const cutoutSrc = await cutoutWhiteBackground(logoImg.getAttribute('src'));
+    if (cutoutSrc) logoImg.src = cutoutSrc;
+  });
+}
+
+// Decorative chairs scattered along the top/bottom edges of the welcome
+// screen, tilted at random angles and bleeding off-screen — purely visual,
+// picked from whichever chairs happen to load first.
+function populateWelcomeDecor(sourceChairs) {
+  const top = document.getElementById('decorTop');
+  const bottom = document.getElementById('decorBottom');
+  if (!top || !bottom) return;
+
+  const picks = sourceChairs.slice(0, 12);
+  picks.forEach((chair, i) => {
+    const container = i < 6 ? top : bottom;
+    const indexInRow = i % 6;
+    const el = document.createElement('div');
+    el.className = 'decor-chair';
+    const leftPct = 4 + indexInRow * 16 + (Math.sin(i * 13.7) * 4);
+    const topPct = i < 6 ? 15 + Math.sin(i * 7.3) * 20 : 25 + Math.sin(i * 5.1) * 20;
+    const rotateDeg = Math.sin(i * 9.1) * 22;
+    el.style.left = leftPct + '%';
+    el.style.top = topPct + '%';
+    el.style.transform = `rotate(${rotateDeg}deg)`;
+    const img = document.createElement('img');
+    img.src = imageCache[chair.id] || chair.image;
+    img.alt = '';
+    el.appendChild(img);
+    container.appendChild(el);
+  });
 }
 
 // The product photos are studio shots on a near-white background. Since
@@ -218,5 +247,15 @@ window.addEventListener('resize', () => {
 });
 
 slider.addEventListener('input', applyFilter);
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  const welcome = document.getElementById('welcomeScreen');
+  const app = document.getElementById('appScreen');
+  welcome.classList.add('hiding');
+  app.hidden = false;
+  applyFilter(); // sizes/positions depend on the now-visible viewport
+  setTimeout(() => { welcome.hidden = true; }, 400);
+});
+
 init();
 initLogo();

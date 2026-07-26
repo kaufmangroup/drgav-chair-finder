@@ -142,3 +142,84 @@ body {
   z-index: 30;
   transform: translate(-50%, -120%);
 }
+
+.welcome-screen {
+  position: fixed;
+  inset: 0;
+  background: #f1f1f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 50;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+.welcome-screen.hiding {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.welcome-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 24px;
+  max-width: 420px;
+}
+
+.welcome-logo {
+  height: 52px;
+  width: auto;
+  margin-bottom: 30px;
+}
+
+.welcome-content h1 {
+  font-size: 26px;
+  line-height: 1.45;
+  font-weight: 700;
+  margin: 0 0 34px;
+  color: #1c1c1e;
+}
+
+.start-btn {
+  background: #d21f3c;
+  color: #fff;
+  border: none;
+  padding: 15px 52px;
+  min-height: 48px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.welcome-decor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 32vh;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.welcome-decor-top {
+  top: -9vh;
+}
+
+.welcome-decor-bottom {
+  bottom: -9vh;
+}
+
+.decor-chair {
+  position: absolute;
+  width: 100px;
+}
+
+.decor-chair img {
+  display: block;
+  width: 100%;
+  height: auto;
+}

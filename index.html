@@ -7,28 +7,40 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="brand">
-    <img src="assets/logo.png" alt="ד&quot;ר גב">
-  </header>
-
-  <main id="stage" class="stage"></main>
-
-  <div class="control-card">
-    <div class="control-title">
-      זמן ישיבה
-      <span class="info-dot" tabindex="0">?
-        <span class="info-tooltip">חלק מהכיסאות בנויים לישיבה קצרה, אחרים לישיבה ממושכת לאורך כל היום.</span>
-      </span>
+  <div id="welcomeScreen" class="welcome-screen">
+    <div class="welcome-decor welcome-decor-top" id="decorTop"></div>
+    <div class="welcome-content">
+      <img class="welcome-logo" src="assets/logo.png" alt="ד&quot;ר גב">
+      <h1>ברוכים הבאים<br>למאתר הכיסא המשרדי</h1>
+      <button id="startBtn" class="start-btn" type="button">התחלה</button>
     </div>
-    <input type="range" id="sittingSlider" min="2" max="8" step="1" value="5" aria-label="כמה שעות ביום אתם יושבים">
-    <div class="control-scale">
-      <span>2 שעות</span>
-      <span>8 שעות</span>
-    </div>
-    <div class="control-value" id="hoursLabel">כמה שעות ביום</div>
+    <div class="welcome-decor welcome-decor-bottom" id="decorBottom"></div>
   </div>
 
-  <div class="chair-tooltip" id="chairTooltip" hidden></div>
+  <div id="appScreen" class="app-screen" hidden>
+    <header class="brand">
+      <img src="assets/logo.png" alt="ד&quot;ר גב">
+    </header>
+
+    <main id="stage" class="stage"></main>
+
+    <div class="control-card">
+      <div class="control-title">
+        זמן ישיבה
+        <span class="info-dot" tabindex="0">?
+          <span class="info-tooltip">חלק מהכיסאות בנויים לישיבה קצרה, אחרים לישיבה ממושכת לאורך כל היום.</span>
+        </span>
+      </div>
+      <input type="range" id="sittingSlider" min="2" max="8" step="1" value="5" aria-label="כמה שעות ביום אתם יושבים">
+      <div class="control-scale">
+        <span>2 שעות</span>
+        <span>8 שעות</span>
+      </div>
+      <div class="control-value" id="hoursLabel">כמה שעות ביום</div>
+    </div>
+
+    <div class="chair-tooltip" id="chairTooltip" hidden></div>
+  </div>
 
   <script type="module" src="js/app.js"></script>
 </body>
