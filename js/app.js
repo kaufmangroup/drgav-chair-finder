@@ -57,8 +57,8 @@ async function initLogo() {
 // chair drifting into the text in the middle — only the arc that pokes
 // into each band's window is ever visible.
 const DECOR_RINGS = [
-  { name: 'inner', radiusVh: 15, count: 4, duration: 50 },
-  { name: 'outer', radiusVh: 27, count: 5, duration: 22 },
+  { name: 'inner', radiusVh: 14, count: 9, duration: 55, size: 78 },
+  { name: 'outer', radiusVh: 27, count: 12, duration: 24, size: 70 },
 ];
 
 function populateWelcomeDecor(sourceChairs) {
@@ -84,6 +84,9 @@ function populateWelcomeDecor(sourceChairs) {
 
         const el = document.createElement('div');
         el.className = 'decor-chair';
+        el.style.width = ring.size + 'px';
+        el.style.marginLeft = (-ring.size / 2) + 'px';
+        el.style.marginTop = (-ring.size / 2) + 'px';
         el.style.transform = `rotate(${angle}deg) translate(0, -${ring.radiusVh}vh) rotate(${-angle + tilt}deg)`;
 
         const img = document.createElement('img');
