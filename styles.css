@@ -172,17 +172,33 @@ body {
   display: none;
 }
 
-.spinner {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 3px solid #e2e2e2;
-  border-top-color: #d21f3c;
-  animation: spin 0.8s linear infinite;
+.chair-draw {
+  width: 96px;
+  height: auto;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+/* Each part draws in, holds, then erases and redraws — same duration and
+   keyframes for every part, just staggered start delays, so the phase
+   difference between them stays constant forever (an infinite CSS
+   animation with a delay doesn't drift out of sync on repeat). */
+.chair-draw .cd-part {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw-chair 2.6s cubic-bezier(.65,0,.35,1) infinite;
+}
+
+.chair-draw .cd-1 { animation-delay: 0s; }
+.chair-draw .cd-2 { animation-delay: 0.12s; }
+.chair-draw .cd-3 { animation-delay: 0.22s; }
+.chair-draw .cd-4 { animation-delay: 0.34s; }
+.chair-draw .cd-5 { animation-delay: 0.44s; }
+.chair-draw .cd-6 { animation-delay: 0.56s; }
+
+@keyframes draw-chair {
+  0% { stroke-dashoffset: 1; }
+  38% { stroke-dashoffset: 0; }
+  75% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -1; }
 }
 
 .welcome-screen {
