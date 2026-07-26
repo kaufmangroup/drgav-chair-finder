@@ -258,28 +258,21 @@ body {
 
 .welcome-decor {
   position: absolute;
-  left: 0;
-  right: 0;
-  height: 32vh;
-  overflow: hidden;
+  inset: 0;
   pointer-events: none;
   z-index: 1;
 }
 
-.welcome-decor-top {
-  top: -9vh;
-}
-
-.welcome-decor-bottom {
-  bottom: -9vh;
-}
-
-/* Each ring is a 0-size anchor point; its rotation animates as a whole, so
-   every chair inside keeps its fixed angle/radius relative to the others —
-   a rigid carousel, not independently drifting chairs. */
+/* Each ring is a single 0-size anchor at the true center of the screen —
+   one continuous circle surrounding the text, not two separate halves
+   above/below it. Its rotation animates as a whole, so every chair inside
+   keeps its fixed angle/radius relative to the others (a rigid carousel).
+   The text sits above it (z-index 2), so chairs simply pass behind it
+   as they orbit through that part of the circle. */
 .decor-ring {
   position: absolute;
   left: 50%;
+  top: 50%;
   width: 0;
   height: 0;
   animation-name: decor-spin;
