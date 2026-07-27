@@ -152,32 +152,69 @@ function sizeFromFraction(fraction, min, max) {
 // screen (between the logo and the control card), not pushed to one side.
 function podiumSlots() {
   return [
-    { x: 50, y: 56, size: sizeFromFraction(0.42, 170, 300) },
-    { x: 31, y: 39, size: sizeFromFraction(0.30, 120, 220) },
-    { x: 69, y: 39, size: sizeFromFraction(0.30, 120, 220) },
+    { x: 50, y: 60, size: sizeFromFraction(0.50, 200, 340) },
+    { x: 16, y: 29, size: sizeFromFraction(0.37, 150, 260) },
+    { x: 84, y: 29, size: sizeFromFraction(0.37, 150, 260) },
   ];
 }
 
 // The next 12 best matches sit on a real ring around the podium. The ring
 // has two gaps — a wide one at the bottom (control card) and a narrower one
-// at the top (logo) — so chairs never fight either for space. Positions
-// come from a pixel radius (not a percentage one) so the ring reads as an
-// actual circle on screen regardless of viewport aspect ratio.
-const RING_ANGLES_DEG = [155, 173, 191, 209, 227, 245, 295, 313, 331, 349, 7, 25];
+// at the top (logo) — so chairs never fight either for space. Angles are
+// spaced evenly across the two remaining (symmetric, 120°-wide) arcs so the
+// ring actually reaches into all four corners instead of just the top two.
+// Positions come from a pixel radius (not a percentage one) so the ring
+// reads as an actual circle on screen regardless of viewport aspect ratio.
+// Besides the card/logo gaps, these also steer clear of the two podium
+// flanks' own directions (~207° and ~333° from the shared center) — with
+// bigger podium chairs, a small angular gap there is no longer enough
+// clearance, so the busier stretches (125-185, 355-57) carry more chairs
+// and the tight pinch points next to each flank (185-245, 295-355) get
+// just one each.
+const RING_ANGLES_DEG = [128, 149, 170, 189, 227, 240, 300, 313, 351, 12, 33, 53];
 
 function ringSlots() {
-  const size = sizeFromFraction(0.20, 95, 175);
+  const size = sizeFromFraction(0.15, 68, 140);
   const cx = 50, cy = 48; // matches the podium cluster's center
   // Independent x/y radii (each a fraction of ITS OWN viewport dimension,
   // not of vmin) so a tall narrow phone gets a taller ellipse that actually
   // uses the extra vertical room, instead of being capped by the narrow
   // width in both directions.
-  const radiusXPx = clamp(window.innerWidth * 0.36, 150, 300);
-  const radiusYPx = clamp(window.innerHeight * 0.30, 150, 320);
+  const radiusXPx = clamp(window.innerWidth * 0.64, 280, 400);
+  const radiusYPx = clamp(window.innerHeight * 0.54, 280, 420);
+  const cxPx = (cx / 100) * window.innerWidth;
+  const cyPx = (cy / 100) * window.innerHeight;
+
+  // Hand-picked angles/radii get the shape right, but podium size and ring
+  // radius each clamp independently against different viewport dimensions,
+  // so their ratio isn't constant — a gap that's safe on one screen size
+  // can pinch shut on another. As a safety net, before finalizing each ring
+  // chair, push it further out along its own angle (never sideways, so the
+  // ring's shape/symmetry is preserved) until it actually clears the podium
+  // and every ring chair already placed.
+  const placed = podiumSlots().map((p) => ({
+    xPx: (p.x / 100) * window.innerWidth,
+    yPx: (p.y / 100) * window.innerHeight,
+    size: p.size,
+  }));
+
   return RING_ANGLES_DEG.map((deg) => {
     const rad = (deg * Math.PI) / 180;
-    const x = cx + ((Math.cos(rad) * radiusXPx) / window.innerWidth) * 100;
-    const y = cy + ((Math.sin(rad) * radiusYPx) / window.innerHeight) * 100;
+    let scale = 1;
+    let xPx, yPx;
+    for (let attempt = 0; attempt < 60; attempt++) {
+      xPx = cxPx + Math.cos(rad) * radiusXPx * scale;
+      yPx = cyPx + Math.sin(rad) * radiusYPx * scale;
+      const tooClose = placed.some((p) => {
+        const required = ((size + p.size) / 2) * 1.08;
+        return Math.hypot(xPx - p.xPx, yPx - p.yPx) < required;
+      });
+      if (!tooClose) break;
+      scale += 0.06;
+    }
+    placed.push({ xPx, yPx, size });
+    const x = (xPx / window.innerWidth) * 100;
+    const y = (yPx / window.innerHeight) * 100;
     return { x, y, size };
   });
 }
